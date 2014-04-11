@@ -1,0 +1,60 @@
+﻿<views:BaseAboutView
+    x:Class="Cirrious.Sphero.WorkBench.UI.WindowsPhone.Views.AboutView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:shell="clr-namespace:Microsoft.Phone.Shell;assembly=Microsoft.Phone"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="clr-namespace:Cirrious.Sphero.WorkBench.UI.WindowsPhone.Views"
+    FontFamily="{StaticResource PhoneFontFamilyNormal}"
+    FontSize="{StaticResource PhoneFontSizeNormal}"
+    Foreground="{StaticResource PhoneForegroundBrush}"
+    SupportedOrientations="Portrait" Orientation="Landscape"
+    mc:Ignorable="d"
+    shell:SystemTray.IsVisible="True">
+
+    <!--LayoutRoot is the root grid where all page content is placed-->
+    <Grid x:Name="LayoutRoot" Background="Transparent">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!--TitlePanel contains the name of the application and page title-->
+        <StackPanel Grid.Row="0" Margin="12,17,0,28">
+            <TextBlock Text="BALL CONTROL" Style="{StaticResource PhoneTextNormalStyle}"/>
+            <TextBlock Text="About" Margin="9,-7,0,0" Style="{StaticResource PhoneTextTitle1Style}"/>
+        </StackPanel>
+
+        <!--ContentPanel - place additional content here-->
+        <Grid x:Name="ContentPanel" Grid.Row="1" Margin="12,0,12,0">
+            <ScrollViewer>
+                <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Ball Control is a Sphero controller for WP8"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="If you don't have a Sphero yet:"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Text="http://goSphero.com"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="If you do have a Sphero then connect to it in settings:"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Tap="BluetoothOnTap" Text="Bluetooth settings"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Ball Control is lovingly written by Stuart Lodge at Cirrious, using the MvvmCross framework."></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Text="http://twitter.com/slodge"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Text="http://slodge.blogspot.co.uk"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="You can hire Stuart for mobile and cloud development at:"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Text="http://cirrious.com"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Ball Control is open source. You can contribute:"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Text="http://github.com/slodge/ballcontrol"></TextBlock>
+                    <!--
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Audio and still from Gangnam Style by Psy used under waived copyright agreement - thanks Psy :)"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Margin="12" Text="http://bit.ly/gangnamCopy"></TextBlock>
+                    -->
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Dance music by Tony Warrior - used under Creative Commons license."></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Margin="12" Text="http://www.jamendo.com/en/track/660752/reggaeton-pop1"></TextBlock>
+
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Sphero is a robot from Orbotix:"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" TextAlignment="Center" TextDecorations="Underline" Tap="HyperLinkOnTap" Text="http://www.gosphero.com/company/"></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource PhoneTextNormalStyle}" Margin="12" Text="Note: This app is not in any way connected with Orbotix - but they were excited to hear about it :)"></TextBlock>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+
+</views:BaseAboutView>
