@@ -51,8 +51,8 @@ class MotorRampExample:
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
 
-
-        self._cf = Crazyflie()
+        self._cf = Crazyflie(ro_cache="./crazyflie-clients-python/lib/cflib/cache",
+                             rw_cache="./crazyflie-clients-python/lib/cflib/cache")
 
         self._cf.connected.add_callback(self._connected)
         self._cf.disconnected.add_callback(self._disconnected)
@@ -75,9 +75,15 @@ class MotorRampExample:
         self._lg_stab.add_variable("stabilizer.pitch", "float")
         self._lg_stab.add_variable("stabilizer.yaw", "float")
         self._lg_stab.add_variable("stabilizer.thrust", "uint16_t")
+        self._lg_stab.add_variable("mag.x", "float")
+        #self._lg_stab.add_variable("mag.y", "float")
+        #self._lg_stab.add_variable("mag.z", "float")
         #self._lg_stab.add_variable("acc.x", "float")
         #self._lg_stab.add_variable("acc.y", "float")
         #self._lg_stab.add_variable("acc.z", "float")
+        self._lg_stab.add_variable("gyro.x", "float")
+        self._lg_stab.add_variable("gyro.y", "float")
+        self._lg_stab.add_variable("gyro.z", "float")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -126,7 +132,7 @@ class MotorRampExample:
 
         thrust_mult = 1
         thrust_step = 100
-        thrust = 39000
+        thrust = 29000
         pitch = -5.2
         roll = 14
         yawrate = 0

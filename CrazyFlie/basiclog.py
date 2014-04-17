@@ -55,7 +55,9 @@ class LoggingExample:
         """ Initialize and run the example with the specified link_uri """
 
         # Create a Crazyflie object without specifying any cache dirs
-        self._cf = Crazyflie()
+        self._cf = Crazyflie(ro_cache="./crazyflie-clients-python/lib/cflib/cache",
+                             rw_cache="./crazyflie-clients-python/lib/cflib/cache")
+
 
         # Connect some callbacks from the Crazyflie API
         self._cf.connected.add_callback(self._connected)
