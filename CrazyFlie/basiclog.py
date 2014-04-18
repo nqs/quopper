@@ -33,6 +33,9 @@ and prints it to the console. After 10s the application disconnects and exits.
 import sys
 sys.path.append("./crazyflie-clients-python/lib")
 
+import os
+import signal
+
 import cflib.crtp
 
 import logging
@@ -79,7 +82,7 @@ class LoggingExample:
         print "Connected to %s" % link_uri
 
         # The definition of the logconfig can be made before connecting
-        self._lg_stab = LogConfig(name="Stabilizer", period_in_ms=10)
+        self._lg_stab = LogConfig(name="Stabilizer", period_in_ms=100)
         self._lg_stab.add_variable("gyro.x", "float")
         self._lg_stab.add_variable("gyro.y", "float")
         self._lg_stab.add_variable("gyro.z", "float")
@@ -97,10 +100,6 @@ class LoggingExample:
             self._lg_stab.start()
         else:
             print("Could not add logconfig since some variables are not in TOC")
-
-        # Start a timer to disconnect in 10s
-        t = Timer(5, self._cf.close_link)
-        t.start()
 
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
@@ -126,7 +125,14 @@ class LoggingExample:
         print "Disconnected from %s" % link_uri
         self.is_connected = False
 
+def signal_handler(signal, frame):
+    print('You pressed Ctrl+C!')
+    os._exit(1)
+
 if __name__ == '__main__':
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Initialize the low-level drivers (don't list the debug drivers)
     cflib.crtp.init_drivers(enable_debug_driver=False)
     # Scan for Crazyflies and use the first one found
