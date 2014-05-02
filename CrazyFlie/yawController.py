@@ -31,6 +31,7 @@ the motors and disconnects.
 """
 
 import time, sys
+import os, signal
 from threading import Thread
 
 #FIXME: Has to be launched from within the example folder
@@ -43,11 +44,30 @@ logging.basicConfig(level=logging.ERROR)
 
 from cflib.crazyflie.log import Log, LogVariable, LogConfig
 
+from pid import PID
 
-class MotorRampExample:
+
+class YawController:
     """Example that connects to a Crazyflie and ramps the motors up/down and
     the disconnects"""
     def __init__(self, link_uri):
+
+        self._runCouner = 0
+        self._firstYawFound = False
+
+        # Set Initial values
+        self._thrust = 41000
+        self._pitch = 0
+        self._roll = 0
+        self._yawrate = 0
+
+        self._yawSetPoint = 0
+
+        self._rollPid = PID()
+        self._rollPid.SetKp(-.1);	        # Proportional Gain
+        #self._rollPid.SetKi(-0.5);	        # Integral Gain
+        #self._rollPid.SetKd(-0.1);	        # Derivative Gain
+
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
 
@@ -63,27 +83,26 @@ class MotorRampExample:
 
         print "Connecting to %s" % link_uri
 
+        # Variable used to keep main loop occupied until disconnect
+        self.is_connected = True
+
     def _connected(self, link_uri):
         """ This callback is called form the Crazyflie API when a Crazyflie
         has been connected and the TOCs have been downloaded."""
 
-        print "Connected"
+        print "Connected to %s" % link_uri
+        self._cf.commander.send_setpoint(0, 0, 0, 20000)
 
         # The definition of the logconfig can be made before connecting
-        self._lg_stab = LogConfig(name="Stabilizer", period_in_ms=100)
+        self._lg_stab = LogConfig(name="Logger", period_in_ms=10)
         self._lg_stab.add_variable("stabilizer.roll", "float")
         self._lg_stab.add_variable("stabilizer.pitch", "float")
         self._lg_stab.add_variable("stabilizer.yaw", "float")
         self._lg_stab.add_variable("stabilizer.thrust", "uint16_t")
-        #self._lg_stab.add_variable("mag.x", "float")
-        #self._lg_stab.add_variable("mag.y", "float")
-        #self._lg_stab.add_variable("mag.z", "float")
-        #self._lg_stab.add_variable("acc.x", "float")
-        #self._lg_stab.add_variable("acc.y", "float")
-        #self._lg_stab.add_variable("acc.z", "float")
         self._lg_stab.add_variable("gyro.x", "float")
         self._lg_stab.add_variable("gyro.y", "float")
         self._lg_stab.add_variable("gyro.z", "float")
+
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -100,57 +119,62 @@ class MotorRampExample:
             print("Could not add logconfig since some variables are not in TOC")
 
 
-        # Start a separate thread to do the motor test.
-        # Do not hijack the calling thread!
-        Thread(target=self._ramp_motors).start()
-
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
         print "Error when logging %s: %s" % (logconf.name, msg)
 
     def _stab_log_data(self, timestamp, data, logconf):
         """Callback froma the log API when data arrives"""
-        print "[%d][%s]: %s" % (timestamp, logconf.name, data)
+        #print "[%d][%s]: %s" % (timestamp, logconf.name, data)
+        new_dict = {logconf.name:data}
+        stab_roll = new_dict['Logger']['stabilizer.roll']
+        stab_pitch = new_dict['Logger']['stabilizer.pitch']
+        stab_yaw = new_dict['Logger']['stabilizer.yaw']
+        gyro_x = new_dict['Logger']['gyro.x']
+        gyro_y = new_dict['Logger']['gyro.y']
+        gyro_z = new_dict['Logger']['gyro.z']
+
+        if not self._firstYawFound:
+            self._firstYawFound = True
+            self._yawSetPoint = stab_yaw
+            return
+
+        prevRoll = self._roll
+        error = stab_yaw - self._yawSetPoint
+        self._roll = self._rollPid.GenOut(error)
+        self._cf.commander.send_setpoint(self._roll, self._pitch, self._yawrate, self._thrust)
+
+        print "Error %s Roll %s, Old Roll %s, Stab Yaw = %s" % (error, self._roll, prevRoll, stab_yaw)
+
+        self._runCouner = self._runCouner + 1
+        if self._runCouner > 20000:
+            print "Exiting"
+            self._cf.commander.setpoint(0, 0, 0, 0)
+            self._cf.close_link()
+            os._exit(1)
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
         at the speficied address)"""
         print "Connection to %s failed: %s" % (link_uri, msg)
+        self.is_connected = False
 
     def _connection_lost(self, link_uri, msg):
         """Callback when disconnected after a connection has been made (i.e
         Crazyflie moves out of range)"""
         print "Connection to %s lost: %s" % (link_uri, msg)
+        self.is_connected = False
 
     def _disconnected(self, link_uri):
         """Callback when the Crazyflie is disconnected (called in all cases)"""
         print "Disconnected from %s" % link_uri
+        self.is_connected = False
 
-    def _ramp_motors(self):
-
-        print "ramp motors start"
-
-        thrust_mult = 1
-        thrust_step = 100
-        thrust = 29000
-        pitch = -5.2
-        roll = 14
-        yawrate = 0
-        while thrust >= 20000:
-            self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)
-            time.sleep(0.5)
-            if thrust >= 25000:
-                thrust_mult = -1
-            thrust += thrust_step * thrust_mult
-            print thrust
-
-        print "End"
-        print thrust
+    def kill(self, signal, frame):
+        print "Ctrl+C pressed"
         self._cf.commander.send_setpoint(0, 0, 0, 0)
-        # Make sure that the last packet leaves before the link is closed
-        # since the message queue is not flushed before closing
-        time.sleep(0.1)
         self._cf.close_link()
+        os._exit(1)
 
 if __name__ == '__main__':
     # Initialize the low-level drivers (don't list the debug drivers)
@@ -163,10 +187,15 @@ if __name__ == '__main__':
     #    print i[0]
 
     default="radio://0/10/250K"
-    le = MotorRampExample(default)
-    #le = MotorRampExample(available[0][0])
+    controller = YawController(default)
+
+    signal.signal(signal.SIGINT, controller.kill)
+
+    #le = YawController(available[0][0])
 
     #if len(available) > 0:
-    #    le = MotorRampExample(available[0][0])
+    #    le = YawController(available[0][0])
     #else:
     #    print "No Crazyflies found, cannot run example"
+    while controller.is_connected:
+        time.sleep(1)

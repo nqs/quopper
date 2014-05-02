@@ -82,10 +82,14 @@ class LoggingExample:
         print "Connected to %s" % link_uri
 
         # The definition of the logconfig can be made before connecting
-        self._lg_stab = LogConfig(name="Stabilizer", period_in_ms=100)
+        self._lg_stab = LogConfig(name="Stabilizer", period_in_ms=2000)
         self._lg_stab.add_variable("gyro.x", "float")
         self._lg_stab.add_variable("gyro.y", "float")
         self._lg_stab.add_variable("gyro.z", "float")
+        self._lg_stab.add_variable("stabilizer.roll", "float")
+        self._lg_stab.add_variable("stabilizer.pitch", "float")
+        self._lg_stab.add_variable("stabilizer.yaw", "float")
+        self._lg_stab.add_variable("stabilizer.thrust", "uint16_t")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -101,6 +105,8 @@ class LoggingExample:
         else:
             print("Could not add logconfig since some variables are not in TOC")
 
+        self._cf.commander.send_setpoint(0, 0, 0, 20000)
+
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
         print "Error when logging %s: %s" % (logconf.name, msg)
@@ -108,6 +114,11 @@ class LoggingExample:
     def _stab_log_data(self, timestamp, data, logconf):
         """Callback froma the log API when data arrives"""
         print "[%d][%s]: %s" % (timestamp, logconf.name, data)
+        new_dict = {logconf.name:data}
+        x = new_dict['Stabilizer']['stabilizer.roll']
+        y = new_dict['Stabilizer']['stabilizer.pitch']
+        z = new_dict['Stabilizer']['stabilizer.yaw']
+        print "%s" % y
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
