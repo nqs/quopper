@@ -82,7 +82,10 @@ class JoystickController:
         else:
             print("Could not add logconfig since some variables are not in TOC")
 
-        self._jr.input_updated.add_callback(self._cf.commander.send_setpoint)
+        self._jr.input_updated.add_callback(self._send_setpoint)
+
+    def _send_setpoint(self, roll, pitch, yawRate, thrust):
+        self._cf.commander.send_setpoint(roll/1.2, pitch/1.2, yawRate, thrust/1.1 + 70 * abs(roll) + 70 * abs(pitch))
 
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
