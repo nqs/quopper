@@ -99,11 +99,9 @@ class JoystickController:
         gyro_y = new_dict['Logger']['gyro.y']
         gyro_z = new_dict['Logger']['gyro.z']
 
-        if stab_roll > 15 or stab_roll > 15:
+        if stab_roll > 150 or stab_pitch > 150:
             print "I'm out of control!!!!!"
-            self._cf.commander.setpoint(0, 0, 0, 0)
-            #self._cf.close_link()
-            os._exit(1)
+            self._cf.commander.send_setpoint(0, 0, 0, 0)
 
         #self._cf.commander.send_setpoint(self._roll, self._pitch, self._yawrate, self._thrust)
 
