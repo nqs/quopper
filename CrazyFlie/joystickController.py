@@ -19,8 +19,15 @@ class JoystickController:
     """Example that connects to a Crazyflie and ramps the motors up/down and
     the disconnects"""
     def __init__(self, link_uri):
+        self._reconnectThreadStarted = False
+        self._connect(link_uri)
+
+    def _connect(self, link_uri):
+
         from cfclient.utils.input import JoystickReader
         from cfclient.utils.config import Config
+
+        self._link_uri = link_uri
 
         self._jr = JoystickReader(do_device_discovery=False)
 
@@ -39,10 +46,9 @@ class JoystickController:
 
         print "Connecting to %s" % link_uri
 
-        # Variable used to keep main loop occupied until disconnect
-        self.is_connected = True
 
     def _connected(self, link_uri):
+        self.is_connected = True
 
         self.setup_controller("xbox360_mode - rachel")
 
@@ -112,16 +118,35 @@ class JoystickController:
         print "Connection to %s failed: %s" % (link_uri, msg)
         self.is_connected = False
 
+        if not self._reconnectThreadStarted:
+            Thread(target=self._reconnect).start()
+
     def _connection_lost(self, link_uri, msg):
         """Callback when disconnected after a connection has been made (i.e
         Crazyflie moves out of range)"""
         print "Connection to %s lost: %s" % (link_uri, msg)
         self.is_connected = False
 
+        if not self._reconnectThreadStarted:
+            Thread(target=self._reconnect).start()
+
     def _disconnected(self, link_uri):
         """Callback when the Crazyflie is disconnected (called in all cases)"""
         print "Disconnected from %s" % link_uri
         self.is_connected = False
+
+        if not self._reconnectThreadStarted:
+            Thread(target=self._reconnect).start()
+
+    def _reconnect(self):
+        self._reconnectThreadStarted = True
+        time.sleep(0.1)
+        print "Reconnecting"
+        #self._connect(self._link_uri)
+        self._reconnectThreadStarted = False
+        if not self.is_connected:
+            self._cf.open_link(self._link_uri)
+
 
     def setup_controller(self, input_config, input_device=0, xmode=False):
         """Set up the device reader""" 
@@ -170,5 +195,5 @@ if __name__ == '__main__':
 
     signal.signal(signal.SIGINT, controller.kill)
 
-    while controller.is_connected:
-        time.sleep(1)
+    while True:
+        time.sleep(1000)
