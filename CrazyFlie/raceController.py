@@ -47,40 +47,25 @@ from cflib.crazyflie.log import Log, LogVariable, LogConfig
 from pid import PID
 
 
-class RollController:
+class RaceController:
     """Example that connects to a Crazyflie and ramps the motors up/down and
     the disconnects"""
     def __init__(self, link_uri):
 
-        self._runCouner = 0
-
         # Set Initial values
-        self._thrust = 42000
-        self._pitch = 0
+        self._thrust = 50000
         self._roll = 0
-        self._yawrate = 0
-
-        # Roll Trim
-        self._rollTrim = 0
-        self._pitchTrim = 0
+        self._rollTrim = 3
+        self._pitchSetPoint = 40
         self._yawSetPoint = 0
         self._initialYawSet = False
+        self._rollThrustFactor = 150
+        self._pitchTrustFactor = 200
 
         self._rollPid = PID()
-        self._rollPid.SetKp(-.5)	# Proportional Gain
-        self._rollPid.SetKi(-.01)	# Integral Gain
+        self._rollPid.SetKp(-1)	        # Proportional Gain
+        self._rollPid.SetKi(-0.4)	# Integral Gain
         self._rollPid.SetKd(0)	        # Derivative Gain
-
-        self._pitchPid = PID()
-        self._pitchPid.SetKp(-.5)	# Proportional Gain
-        self._pitchPid.SetKi(-.01)	# Integral Gain
-        self._pitchPid.SetKd(0)	        # Derivative Gain
-
-        self._yawPid = PID()
-        self._yawPid.SetKp(-.01)	# Proportional Gain
-        self._yawPid.SetKi(-.01)	# Integral Gain
-        self._yawPid.SetKd(0)	        # Derivative Gain
-
 
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
@@ -105,9 +90,10 @@ class RollController:
         has been connected and the TOCs have been downloaded."""
 
         print "Connected to %s" % link_uri
-        self._cf.commander.send_setpoint(0, 0, 0, 20000)
+        self._cf.commander.send_setpoint(0, self._rollTrim, 0, 40000)
+        self._cf.commander.set_client_xmode(False)
 
-        # The definition of the logconfig can be made before connecting
+        # The definition of the loggconfig can be made before connecting
         self._lg_stab = LogConfig(name="Logger", period_in_ms=10)
         self._lg_stab.add_variable("stabilizer.roll", "float")
         self._lg_stab.add_variable("stabilizer.pitch", "float")
@@ -147,31 +133,19 @@ class RollController:
         gyro_y = new_dict['Logger']['gyro.y']
         gyro_z = new_dict['Logger']['gyro.z']
 
-        if stab_roll > 15 or stab_roll > 15:
+        if stab_roll > 15 or stab_pitch > 45:
             print "I'm out of control!!!!!"
-            self._cf.commander.setpoint(0, 0, 0, 0)
-            #self._cf.close_link()
+            self._cf.commander.send_setpoint(0, 0, 0, 0)
+            self._cf.close_link()
             os._exit(1)
 
-        if not self._initialYawSet:
-            self._initialYawSet = True
-            self._yawSetPoint = stab_yaw
-            return;
-
         prevRoll = self._roll
-        self._roll = self._rollPid.GenOut(stab_roll + self._rollTrim)
+        self._roll = self._rollPid.GenOut(stab_roll) + self._rollTrim
 
-        prevPitch = self._pitch
-        self._pitch = self._pitchPid.GenOut(stab_pitch + self._pitchTrim)
+        self._cf.commander.send_setpoint(self._roll, self._pitchSetPoint, 0,
+                self._thrust + self._rollThrustFactor * abs(self._roll) + self._pitchTrustFactor * abs(stab_pitch))
 
-        prevYawRate = self._yawrate
-        self._yawrate = self._rollPid.GenOut(stab_yaw + self._yawSetPoint)
-
-        self._cf.commander.send_setpoint(self._roll, self._pitch, self._yawrate, self._thrust)
-
-        print "Pitch %s, Old Pitch %s, Stab Pitch = %s" % (self._pitch, prevPitch, stab_pitch)
-        #print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
-        #print "Yaw %s, Old Yaw %s, Stab Yaw = %s" % (self._yawrate, prevYawRate, stab_yaw)
+        print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -193,29 +167,18 @@ class RollController:
     def kill(self, signal, frame):
         print "Ctrl+C pressed"
         self._cf.commander.send_setpoint(0, 0, 0, 0)
-        #self._cf.close_link()
+        time.sleep(0.1)
+        self._cf.close_link()
         os._exit(1)
 
 if __name__ == '__main__':
     # Initialize the low-level drivers (don't list the debug drivers)
     cflib.crtp.init_drivers(enable_debug_driver=False)
-    # Scan for Crazyflies and use the first one found
-    print "Scanning interfaces for Crazyflies..."
-    #available = cflib.crtp.scan_interfaces()
-    #print "Crazyflies found:"
-    #for i in available:
-    #    print i[0]
 
     default="radio://0/10/250K"
-    controller = RollController(default)
+    controller = RaceController(default)
 
     signal.signal(signal.SIGINT, controller.kill)
 
-    #le = RollController(available[0][0])
-
-    #if len(available) > 0:
-    #    le = RollController(available[0][0])
-    #else:
-    #    print "No Crazyflies found, cannot run example"
     while controller.is_connected:
         time.sleep(1)
