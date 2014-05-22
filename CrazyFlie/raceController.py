@@ -53,18 +53,20 @@ class RaceController:
     def __init__(self, link_uri):
 
         # Set Initial values
-        self._thrust = 50000
+        # 43000 @ 3700mV
+        # 47000 @ 3500mV - not enough
+        self._thrust = 47000
         self._roll = 0
-        self._rollTrim = 3
-        self._pitchSetPoint = 40
+        self._rollTrim = 2
+        self._pitchSetPoint = 30
         self._yawSetPoint = 0
         self._initialYawSet = False
         self._rollThrustFactor = 150
-        self._pitchTrustFactor = 200
+        self._pitchTrustFactor = 250
 
         self._rollPid = PID()
-        self._rollPid.SetKp(-1)	        # Proportional Gain
-        self._rollPid.SetKi(-0.4)	# Integral Gain
+        self._rollPid.SetKp(-1.4)	        # Proportional Gain
+        self._rollPid.SetKi(-0.5)	# Integral Gain
         self._rollPid.SetKd(0)	        # Derivative Gain
 
         """ Initialize and run the example with the specified link_uri """
