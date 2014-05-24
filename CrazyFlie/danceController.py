@@ -45,6 +45,8 @@ from cflib.crazyflie.log import Log, LogVariable, LogConfig
 
 from pid import PID
 
+import datetime
+
 
 class DanceController:
     
@@ -176,21 +178,53 @@ class DanceController:
     def dance(self):
         print "Dance start"
 
-        thrust_step = 1000
-        thrust = 29000
-        pitch = -5.2
-        roll = 14
-        yawrate = 0
-        while thrust >= 20000:
-            self._cf.commander.send_setpoint(roll, pitch, yawrate, thrust)
-            time.sleep(0.5)
+        start_time = datetime.datetime.now()
+        print "start time = "
+        print start_time
 
-            thrust -= thrust_step
+        primary_beat_interval = 0.5
+
+        thrust = 30000
+        thrust_increment = 1000
+        max_thrust = 60000
+
+        # dance opening - rev motors
+        revCount = 4
+        while revCount > 0:
+            self._cf.commander.send_setpoint(0, 0, 0, 40000)
+            time.sleep(primary_beat_interval)
+
+            self._cf.commander.send_setpoint(0, 0, 0, 0)
+            time.sleep(primary_beat_interval)
+
+            revCount -= 1
+            print "rev motors"
+            print revCount
+
+        # lift off
+        while thrust < max_thrust:
+            thrust += thrust_increment
+            print "thrust = "
             print thrust
 
+            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            time.sleep(0.1)
+
+        # hover
+        thrust = 50000
+        hoverCount = 4
+        while hoverCount > 0:
+            thrust -= thrust_increment
+            self._cf.commander.send_setpoint(0, -4, 0, thrust)
+            time.sleep(0.1)
+
+            thrust += thrust_increment
+            self._cf.commander.send_setpoint(0, 4, 0, thrust)
+            time.sleep(0.1)
+
         print "End"
-        print thrust
         self._cf.commander.send_setpoint(0, 0, 0, 0)
+
         # Make sure that the last packet leaves before the link is closed
         # since the message queue is not flushed before closing
         time.sleep(0.1)
