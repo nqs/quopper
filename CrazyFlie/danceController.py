@@ -80,6 +80,8 @@ class DanceController:
         self._cf.connection_failed.add_callback(self._connection_failed)
         self._cf.connection_lost.add_callback(self._connection_lost)
 
+        self.is_connected = False
+
         self._cf.open_link(link_uri)
         print "Connecting to %s" % link_uri
 
@@ -137,7 +139,7 @@ class DanceController:
         gyro_y = new_dict['Logger']['gyro.y']
         gyro_z = new_dict['Logger']['gyro.z']
 
-        if stab_roll > 15 or stab_pitch > 45:
+        if stab_roll > 90 or stab_pitch > 90:
             print "I'm out of control!!!!!"
             self._cf.commander.send_setpoint(0, 0, 0, 0)
             self._cf.close_link()
@@ -145,10 +147,6 @@ class DanceController:
 
         # prevRoll = self._roll
         # self._roll = self._rollPid.GenOut(stab_roll) + self._rollTrim
-
-        # self._cf.commander.send_setpoint(self._roll, self._pitchSetPoint, 0,
-                # self._thrust + self._rollThrustFactor * abs(self._roll) + self._pitchTrustFactor * abs(stab_pitch))
-
         print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
 
     def _connection_failed(self, link_uri, msg):
@@ -185,42 +183,46 @@ class DanceController:
         primary_beat_interval = 0.5
 
         thrust = 30000
-        thrust_increment = 1000
+        thrust_increment = 2000
         max_thrust = 60000
 
-        # dance opening - rev motors
-        revCount = 4
-        while revCount > 0:
-            self._cf.commander.send_setpoint(0, 0, 0, 40000)
-            time.sleep(primary_beat_interval)
+        roll = 0
+        pitch = 0
+        yaw = 0
 
-            self._cf.commander.send_setpoint(0, 0, 0, 0)
-            time.sleep(primary_beat_interval)
+        #TODO: put this back
+        # self.rev_motors(primary_beat_interval)
 
-            revCount -= 1
-            print "rev motors"
-            print revCount
-
-        # lift off
-        while thrust < max_thrust:
-            thrust += thrust_increment
-            print "thrust = "
-            print thrust
-
-            self._cf.commander.send_setpoint(0, 0, 0, thrust)
-            time.sleep(0.1)
+        self.lift_off(thrust, max_thrust, thrust_increment)
 
         # hover
-        thrust = 50000
-        hoverCount = 4
-        while hoverCount > 0:
-            thrust -= thrust_increment
-            self._cf.commander.send_setpoint(0, -4, 0, thrust)
-            time.sleep(0.1)
+        thrust = 55000
+        self.hover(roll, yaw, thrust, thrust_increment)
 
-            thrust += thrust_increment
-            self._cf.commander.send_setpoint(0, 4, 0, thrust)
-            time.sleep(0.1)
+        # dart left
+        thrust = 55000
+        magnitude = 80
+        self.dart(magnitude, -1, thrust)
+
+        # level out
+        thrust = 50000
+        self.level_out(thrust)
+
+        # gain altitude
+        thrust = 58000
+        self.hover(0, 0, thrust, thrust_increment)
+
+        # dart right
+        thrust = 55000
+        magnitude = 70
+        self.dart(magnitude, 1, thrust)
+
+        # level out
+        thrust = 50000
+        self.level_out(thrust)
+
+        # land
+        self.land(thrust, thrust_increment)
 
         print "End"
         self._cf.commander.send_setpoint(0, 0, 0, 0)
@@ -231,6 +233,57 @@ class DanceController:
 
         self._cf.close_link()
         os.exit(0)
+
+    # dance helper functions
+    def rev_motors(self, primary_beat_interval):
+        revCount = 4
+        while revCount > 0:
+            self._cf.commander.send_setpoint(0, 0, 0, 35000)
+            time.sleep(primary_beat_interval)
+
+            self._cf.commander.send_setpoint(0, 0, 0, 0)
+            time.sleep(primary_beat_interval)
+            revCount -= 1
+
+    def lift_off(self, thrust, max_thrust, thrust_increment):
+        print "lifting off"
+        while thrust < max_thrust:
+            thrust += thrust_increment
+            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            time.sleep(0.1)
+
+    def hover(self, roll, yaw, thrust, thrust_increment):
+        print "hovering"
+        hoverCount = 4
+        while hoverCount > 0:
+            thrust -= thrust_increment
+            self._cf.commander.send_setpoint(roll, -4, yaw, thrust)
+            time.sleep(0.1)
+
+            thrust += thrust_increment
+            self._cf.commander.send_setpoint(roll, 4, yaw, thrust)
+            time.sleep(0.1)
+            hoverCount -= 1
+
+    def dart(self, magnitude, direction, thrust):
+        print "darting"
+        self._cf.commander.send_setpoint(magnitude*direction, magnitude*direction, 0, thrust)
+        time.sleep(0.3)
+
+    def level_out(self, thrust):
+        counter = 4
+        while counter > 0:
+            print "leveling out"
+            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            time.sleep(0.1)
+            counter -= 1
+
+    def land(self, thrust, thrust_increment):
+        while thrust > thrust_increment:
+            print "landing"
+            thrust -= thrust_increment
+            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            time.sleep(0.1)
 
 if __name__ == '__main__':
     # Initialize the low-level drivers (don't list the debug drivers)
