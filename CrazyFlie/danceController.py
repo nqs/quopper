@@ -43,8 +43,6 @@ logging.basicConfig(level=logging.ERROR)
 
 from cflib.crazyflie.log import Log, LogVariable, LogConfig
 
-from pid import PID
-
 import datetime
 
 
@@ -56,18 +54,10 @@ class DanceController:
         # 43000 @ 3700mV
         # 47000 @ 3500mV - not enough
         self._thrust = 29000
-        self._roll = 0
         self._rollTrim = 2
-        self._pitchSetPoint = 30
-        self._yawSetPoint = 0
-        self._initialYawSet = False
+        self._pitchTrim = 0
         self._rollThrustFactor = 150
         self._pitchTrustFactor = 250
-
-        self._rollPid = PID()
-        self._rollPid.SetKp(-1.4)           # Proportional Gain
-        self._rollPid.SetKi(-0.5)   # Integral Gain
-        self._rollPid.SetKd(0)          # Derivative Gain
 
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
@@ -102,6 +92,7 @@ class DanceController:
         self._lg_stab.add_variable("gyro.x", "float")
         self._lg_stab.add_variable("gyro.y", "float")
         self._lg_stab.add_variable("gyro.z", "float")
+        self._lg_stab.add_variable("acc.z", "float")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -119,6 +110,7 @@ class DanceController:
 
         # Variable used to keep main loop occupied until disconnect
         self.is_connected = True
+
 
         print "Starting dance thread..."
         Thread(target=self.dance).start()
@@ -144,10 +136,6 @@ class DanceController:
             self._cf.commander.send_setpoint(0, 0, 0, 0)
             self._cf.close_link()
             os._exit(1)
-
-        # prevRoll = self._roll
-        # self._roll = self._rollPid.GenOut(stab_roll) + self._rollTrim
-        print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -196,29 +184,43 @@ class DanceController:
         self.lift_off(thrust, max_thrust, thrust_increment)
 
         # hover
-        thrust = 55000
+        thrust = 47000
         self.hover(roll, yaw, thrust, thrust_increment)
+
+        # spin
+        thrust = 50000
+        magnitude = 90
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, -1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, -1, thrust)
 
         # dart left
         thrust = 55000
         magnitude = 80
-        self.dart(magnitude, -1, thrust)
+        #self.dart(magnitude, -1, thrust)
 
         # level out
-        thrust = 50000
-        self.level_out(thrust)
+        #thrust = 50000
+        #self.level_out(thrust)
 
         # gain altitude
-        thrust = 58000
-        self.hover(0, 0, thrust, thrust_increment)
+        #thrust = 58000
+        #self.hover(0, 0, thrust, thrust_increment)
 
         # dart right
         thrust = 55000
         magnitude = 70
-        self.dart(magnitude, 1, thrust)
+        #self.dart(magnitude, 1, thrust)
 
         # level out
-        thrust = 50000
+        thrust = 40000
         self.level_out(thrust)
 
         # land
@@ -238,10 +240,10 @@ class DanceController:
     def rev_motors(self, primary_beat_interval):
         revCount = 4
         while revCount > 0:
-            self._cf.commander.send_setpoint(0, 0, 0, 35000)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 35000)
             time.sleep(primary_beat_interval)
 
-            self._cf.commander.send_setpoint(0, 0, 0, 0)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 0)
             time.sleep(primary_beat_interval)
             revCount -= 1
 
@@ -249,7 +251,7 @@ class DanceController:
         print "lifting off"
         while thrust < max_thrust:
             thrust += thrust_increment
-            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, thrust)
             time.sleep(0.1)
 
     def hover(self, roll, yaw, thrust, thrust_increment):
@@ -257,11 +259,11 @@ class DanceController:
         hoverCount = 4
         while hoverCount > 0:
             thrust -= thrust_increment
-            self._cf.commander.send_setpoint(roll, -4, yaw, thrust)
+            self._cf.commander.send_setpoint(roll + self._rollTrim, -4 + self._pitchTrim, yaw, thrust)
             time.sleep(0.1)
 
             thrust += thrust_increment
-            self._cf.commander.send_setpoint(roll, 4, yaw, thrust)
+            self._cf.commander.send_setpoint(roll + self._rollTrim, 4 + self._pitchTrim, yaw, thrust)
             time.sleep(0.1)
             hoverCount -= 1
 
@@ -270,11 +272,19 @@ class DanceController:
         self._cf.commander.send_setpoint(magnitude*direction, magnitude*direction, 0, thrust)
         time.sleep(0.3)
 
+    def spin(self, magnitude, direction, thrust):
+        print "spinning"
+        self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, magnitude*direction*4, thrust)
+        time.sleep(0.3)
+        self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, magnitude*direction*4, thrust)
+        time.sleep(0.3)
+        self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, thrust)
+
     def level_out(self, thrust):
         counter = 4
         while counter > 0:
             print "leveling out"
-            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, thrust)
             time.sleep(0.1)
             counter -= 1
 
@@ -282,7 +292,7 @@ class DanceController:
         while thrust > thrust_increment:
             print "landing"
             thrust -= thrust_increment
-            self._cf.commander.send_setpoint(0, 0, 0, thrust)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, thrust)
             time.sleep(0.1)
 
 if __name__ == '__main__':
