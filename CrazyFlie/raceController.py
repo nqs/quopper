@@ -58,16 +58,22 @@ class RaceController:
         self._thrust = 47000
         self._roll = 0
         self._rollTrim = 2
-        self._pitchSetPoint = 30
+        self._pitchSetPoint = 10
         self._yawSetPoint = 0
         self._initialYawSet = False
         self._rollThrustFactor = 150
         self._pitchTrustFactor = 250
 
         self._rollPid = PID()
-        self._rollPid.SetKp(-1.4)	        # Proportional Gain
+        self._rollPid.SetKp(-1.4)	# Proportional Gain
         self._rollPid.SetKi(-0.5)	# Integral Gain
         self._rollPid.SetKd(0)	        # Derivative Gain
+
+        self._accPid = PID()
+        self._accPid.SetKp(1.0)	# Proportional Gain
+        self._accPid.SetKi(0)   	# Integral Gain
+        self._accPid.SetKd(0)	        # Derivative Gain
+        self._lastAccZ = 0
 
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
@@ -92,7 +98,7 @@ class RaceController:
         has been connected and the TOCs have been downloaded."""
 
         print "Connected to %s" % link_uri
-        self._cf.commander.send_setpoint(0, self._rollTrim, 0, 40000)
+        self._cf.commander.send_setpoint(0, self._rollTrim, 0, 50000)
         self._cf.commander.set_client_xmode(False)
 
         # The definition of the loggconfig can be made before connecting
@@ -100,10 +106,15 @@ class RaceController:
         self._lg_stab.add_variable("stabilizer.roll", "float")
         self._lg_stab.add_variable("stabilizer.pitch", "float")
         self._lg_stab.add_variable("stabilizer.yaw", "float")
-        self._lg_stab.add_variable("stabilizer.thrust", "uint16_t")
-        self._lg_stab.add_variable("gyro.x", "float")
-        self._lg_stab.add_variable("gyro.y", "float")
-        self._lg_stab.add_variable("gyro.z", "float")
+        #self._lg_stab.add_variable("stabilizer.thrust", "uint16_t")
+        #self._lg_stab.add_variable("gyro.x", "float")
+        #self._lg_stab.add_variable("gyro.y", "float")
+        #self._lg_stab.add_variable("gyro.z", "float")
+        self._lg_stab.add_variable("acc.x", "float")
+        self._lg_stab.add_variable("acc.y", "float")
+        self._lg_stab.add_variable("acc.z", "float")
+        #self._lg_stab.add_variable("acc.zw", "float")
+        #self._lg_stab.add_variable("acc.mag2", "float")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -131,9 +142,14 @@ class RaceController:
         stab_roll = new_dict['Logger']['stabilizer.roll']
         stab_pitch = new_dict['Logger']['stabilizer.pitch']
         stab_yaw = new_dict['Logger']['stabilizer.yaw']
-        gyro_x = new_dict['Logger']['gyro.x']
-        gyro_y = new_dict['Logger']['gyro.y']
-        gyro_z = new_dict['Logger']['gyro.z']
+        #gyro_x = new_dict['Logger']['gyro.x']
+        #gyro_y = new_dict['Logger']['gyro.y']
+        #gyro_z = new_dict['Logger']['gyro.z']
+        acc_x = new_dict['Logger']['acc.x']
+        acc_y = new_dict['Logger']['acc.y']
+        acc_z = new_dict['Logger']['acc.z']
+        #acc_zw = new_dict['Logger']['acc.zw']
+        #acc_mag2 = new_dict['Logger']['acc.mag2']
 
         if stab_roll > 15 or stab_pitch > 45:
             print "I'm out of control!!!!!"
@@ -144,10 +160,14 @@ class RaceController:
         prevRoll = self._roll
         self._roll = self._rollPid.GenOut(stab_roll) + self._rollTrim
 
-        self._cf.commander.send_setpoint(self._roll, self._pitchSetPoint, 0,
-                self._thrust + self._rollThrustFactor * abs(self._roll) + self._pitchTrustFactor * abs(stab_pitch))
+        accSetPoint = self._accPid.GenOut(acc_z-self._lastAccZ);
+        self._lastAccZ = acc_z
 
-        print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
+        self._cf.commander.send_setpoint(self._roll, self._pitchSetPoint, 0,
+                self._thrust + 5000 * accSetPoint + self._rollThrustFactor * abs(self._roll) + self._pitchTrustFactor * abs(stab_pitch))
+
+        #print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
+        print "acc.x = %s, acc.y = %s, acc.z = %s" % (acc_x, acc_y, acc_z)
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
