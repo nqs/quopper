@@ -99,9 +99,10 @@ class DanceController:
         self._lg_stab.add_variable("stabilizer.pitch", "float")
         self._lg_stab.add_variable("stabilizer.yaw", "float")
         self._lg_stab.add_variable("stabilizer.thrust", "uint16_t")
-        self._lg_stab.add_variable("gyro.x", "float")
-        self._lg_stab.add_variable("gyro.y", "float")
-        self._lg_stab.add_variable("gyro.z", "float")
+        # self._lg_stab.add_variable("gyro.x", "float")
+        # self._lg_stab.add_variable("gyro.y", "float")
+        # self._lg_stab.add_variable("gyro.z", "float")
+        self._lg_stab.add_variable("pm.vbat", "float")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -110,8 +111,10 @@ class DanceController:
         if self._lg_stab.valid:
             # This callback will receive the data
             self._lg_stab.data_received_cb.add_callback(self._stab_log_data)
+
             # This callback will be called on errors
             self._lg_stab.error_cb.add_callback(self._stab_log_error)
+
             # Start the logging
             self._lg_stab.start()
         else:
@@ -122,7 +125,6 @@ class DanceController:
 
         print "Starting dance thread..."
         Thread(target=self.dance).start()
-
 
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
@@ -135,9 +137,10 @@ class DanceController:
         stab_roll = new_dict['Logger']['stabilizer.roll']
         stab_pitch = new_dict['Logger']['stabilizer.pitch']
         stab_yaw = new_dict['Logger']['stabilizer.yaw']
-        gyro_x = new_dict['Logger']['gyro.x']
-        gyro_y = new_dict['Logger']['gyro.y']
-        gyro_z = new_dict['Logger']['gyro.z']
+        # gyro_x = new_dict['Logger']['gyro.x']
+        # gyro_y = new_dict['Logger']['gyro.y']
+        # gyro_z = new_dict['Logger']['gyro.z']
+        battery = new_dict['Logger']['pm.vbat']
 
         if stab_roll > 90 or stab_pitch > 90:
             print "I'm out of control!!!!!"
@@ -147,7 +150,10 @@ class DanceController:
 
         # prevRoll = self._roll
         # self._roll = self._rollPid.GenOut(stab_roll) + self._rollTrim
-        print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
+        # print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
+
+        # print battery
+        print (battery * 1000)
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
