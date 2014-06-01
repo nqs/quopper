@@ -69,6 +69,9 @@ class DanceController:
         self._rollPid.SetKi(-0.5)   # Integral Gain
         self._rollPid.SetKd(0)          # Derivative Gain
 
+        self._maxBatteryCounter = 50
+        self._batteryCounter = 0
+
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
 
@@ -153,7 +156,10 @@ class DanceController:
         # print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
 
         # print battery
-        print (battery * 1000)
+        self._batteryCounter += 1
+        if(self._batteryCounter > self._maxBatteryCounter):
+            print (battery * 1000)
+            self._batteryCounter = 0
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -190,7 +196,7 @@ class DanceController:
 
         thrust = 30000
         thrust_increment = 2000
-        max_thrust = 60000
+        max_thrust = 52000
 
         roll = 0
         pitch = 0
@@ -202,29 +208,32 @@ class DanceController:
         self.lift_off(thrust, max_thrust, thrust_increment)
 
         # hover
-        thrust = 55000
+        thrust = 50000
         self.hover(roll, yaw, thrust, thrust_increment)
 
         # dart left
-        thrust = 55000
+        thrust = 38000
         magnitude = 80
         self.dart(magnitude, -1, thrust)
 
         # level out
-        thrust = 50000
+        thrust = 48000
         self.level_out(thrust)
 
-        # gain altitude
-        thrust = 58000
-        self.hover(0, 0, thrust, thrust_increment)
+        # gain altitude and turn
+        altitude_counter = 2
+        while altitude_counter > 0:
+            thrust = max_thrust
+            self.hover(0, 60, thrust, thrust_increment)
+            altitude_counter -= 1
 
         # dart right
-        thrust = 55000
-        magnitude = 70
+        thrust = 38000
+        magnitude = 80
         self.dart(magnitude, 1, thrust)
 
         # level out
-        thrust = 50000
+        thrust = 48000
         self.level_out(thrust)
 
         # land
