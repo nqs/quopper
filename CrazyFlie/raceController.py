@@ -55,25 +55,36 @@ class RaceController:
         # Set Initial values
         # 43000 @ 3700mV
         # 47000 @ 3500mV - not enough
-        self._thrust = 47000
+        self._thrust = 48000
         self._roll = 0
-        self._rollTrim = 2
-        self._pitchSetPoint = 10
+        self._rollTrim = 0
+        self._pitchSetPoint = 30
         self._yawSetPoint = 0
         self._initialYawSet = False
         self._rollThrustFactor = 150
         self._pitchTrustFactor = 250
+        self._yawThrustFactor = 100
 
         self._rollPid = PID()
-        self._rollPid.SetKp(-1.4)	# Proportional Gain
-        self._rollPid.SetKi(-0.5)	# Integral Gain
+        self._rollPid.SetKp(-2.0)	# Proportional Gain
+        self._rollPid.SetKi(-0.75)	# Integral Gain
         self._rollPid.SetKd(0)	        # Derivative Gain
 
         self._accPid = PID()
-        self._accPid.SetKp(1.0)	# Proportional Gain
+        self._accPid.SetKp(1.0)	    # Proportional Gain
         self._accPid.SetKi(0)   	# Integral Gain
         self._accPid.SetKd(0)	        # Derivative Gain
         self._lastAccZ = 0
+
+        self._yawPid = PID();
+        self._yawPid.SetKp(0.001) 	    # Proportional Gain
+        self._yawPid.SetKi(0)   	# Integral Gain
+        self._yawPid.SetKd(0)	        # Derivative Gain
+
+        self._inRaceMode = True
+        self._raceInterval = 60
+        self._start = time.time()
+        self._lastAddPoint = 0;
 
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
@@ -98,7 +109,7 @@ class RaceController:
         has been connected and the TOCs have been downloaded."""
 
         print "Connected to %s" % link_uri
-        self._cf.commander.send_setpoint(0, self._rollTrim, 0, 50000)
+        self._cf.commander.send_setpoint(0, self._rollTrim, 0, 52000)
         self._cf.commander.set_client_xmode(False)
 
         # The definition of the loggconfig can be made before connecting
@@ -110,11 +121,12 @@ class RaceController:
         #self._lg_stab.add_variable("gyro.x", "float")
         #self._lg_stab.add_variable("gyro.y", "float")
         #self._lg_stab.add_variable("gyro.z", "float")
-        self._lg_stab.add_variable("acc.x", "float")
-        self._lg_stab.add_variable("acc.y", "float")
+        #self._lg_stab.add_variable("acc.x", "float")
+        #self._lg_stab.add_variable("acc.y", "float")
         self._lg_stab.add_variable("acc.z", "float")
         #self._lg_stab.add_variable("acc.zw", "float")
         #self._lg_stab.add_variable("acc.mag2", "float")
+        self._lg_stab.add_variable("pm.vbat", "float")
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -145,11 +157,13 @@ class RaceController:
         #gyro_x = new_dict['Logger']['gyro.x']
         #gyro_y = new_dict['Logger']['gyro.y']
         #gyro_z = new_dict['Logger']['gyro.z']
-        acc_x = new_dict['Logger']['acc.x']
-        acc_y = new_dict['Logger']['acc.y']
+        #acc_x = new_dict['Logger']['acc.x']
+        #acc_y = new_dict['Logger']['acc.y']
         acc_z = new_dict['Logger']['acc.z']
         #acc_zw = new_dict['Logger']['acc.zw']
         #acc_mag2 = new_dict['Logger']['acc.mag2']
+        battery = new_dict['Logger']['pm.vbat']
+
 
         if stab_roll > 15 or stab_pitch > 45:
             print "I'm out of control!!!!!"
@@ -157,17 +171,36 @@ class RaceController:
             self._cf.close_link()
             os._exit(1)
 
+        interval = time.time() - self._start
+        if interval > self._raceInterval and self._inRaceMode:
+            self._inRaceMode = False
+            self.land(40000, 2000)
+
+        thrust_boost = 0
+        if interval - self._lastAddPoint > 1:
+            self._lastAddPoint = interval
+            thrust_boost = 1000
+
         prevRoll = self._roll
         self._roll = self._rollPid.GenOut(stab_roll) + self._rollTrim
 
         accSetPoint = self._accPid.GenOut(acc_z-self._lastAccZ);
         self._lastAccZ = acc_z
 
-        self._cf.commander.send_setpoint(self._roll, self._pitchSetPoint, 0,
-                self._thrust + 5000 * accSetPoint + self._rollThrustFactor * abs(self._roll) + self._pitchTrustFactor * abs(stab_pitch))
+        yaw = 0
+        if not self._initialYawSet:
+            self._initialYawSet = True
+            self._yawSetPoint = stab_yaw
+        else:
+            yaw = self._yawPid.GenOut(self._yawSetPoint - stab_yaw)
+        yaw = 0
 
-        #print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
-        print "acc.x = %s, acc.y = %s, acc.z = %s" % (acc_x, acc_y, acc_z)
+        if self._inRaceMode:
+            self._cf.commander.send_setpoint(self._roll, self._pitchSetPoint, yaw, self._thrust + 5000 * accSetPoint + self._rollThrustFactor * abs(self._roll) + self._pitchTrustFactor * abs(stab_pitch) + self._yawThrustFactor * abs(stab_yaw - self._yawSetPoint) + thrust_boost)
+
+        print "Roll %s, Old Roll %s, Stab Roll = %s" % (self._roll, prevRoll, stab_roll)
+        #print "Set Point %s, Stab Yaw %s, Error =%s, Yaw Input %s" % (self._yawSetPoint, stab_yaw, stab_yaw - self._yawSetPoint, yaw)
+        print (battery * 1000)
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -192,6 +225,13 @@ class RaceController:
         time.sleep(0.1)
         self._cf.close_link()
         os._exit(1)
+
+    def land(self, thrust, thrust_increment):
+        while thrust > thrust_increment:
+            print "landing"
+            thrust -= thrust_increment
+            self._cf.commander.send_setpoint(self._rollTrim, -self._pitchSetPoint , 0, thrust)
+            time.sleep(0.1)
 
 if __name__ == '__main__':
     # Initialize the low-level drivers (don't list the debug drivers)
