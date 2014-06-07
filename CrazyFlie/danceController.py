@@ -45,6 +45,8 @@ from cflib.crazyflie.log import Log, LogVariable, LogConfig
 
 import datetime
 
+import winsound, sys
+
 
 class DanceController:
     
@@ -116,9 +118,9 @@ class DanceController:
         # Variable used to keep main loop occupied until disconnect
         self.is_connected = True
 
-
         print "Starting dance thread..."
         Thread(target=self.dance).start()
+
 
     def _stab_log_error(self, logconf, msg):
         """Callback from the log API when an error occurs"""
@@ -179,22 +181,20 @@ class DanceController:
     def dance(self):
         print "Dance start"
 
-        start_time = datetime.datetime.now()
-        print "start time = "
-        print start_time
+        # start music
+        Thread(target=self.play_music).start()
 
-        primary_beat_interval = 0.5
+        primary_beat_interval = 1.3
 
         thrust = 30000
         thrust_increment = 2000
-        max_thrust = 52000
+        max_thrust = 54000
 
         roll = 0
         pitch = 0
         yaw = 0
 
-        #TODO: put this back
-        # self.rev_motors(primary_beat_interval)
+        self.rev_motors(primary_beat_interval)
 
         self.lift_off(thrust, max_thrust, thrust_increment)
 
@@ -203,27 +203,21 @@ class DanceController:
         self.hover(roll, yaw, thrust, thrust_increment)
 
         # spin
-        thrust = 50000
-        magnitude = 90
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, -1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, -1, thrust)
+        thrust = 44000
+        magnitude = -90
+        spinCounter = 4
+        while spinCounter > 0:
+            self.spin(magnitude, 1, thrust)
+            spinCounter -= 1
 
         # dart left
         thrust = 38000
         magnitude = 80
-        self.dart(magnitude, -1, thrust)
+        self.dart(magnitude, 1, thrust)
 
         # level out
         thrust = 48000
-        #self.level_out(thrust)
+        self.level_out(thrust)
 
         # gain altitude and turn
         altitude_counter = 2
@@ -232,14 +226,30 @@ class DanceController:
             self.hover(0, 60, thrust, thrust_increment)
             altitude_counter -= 1
 
+        # level out
+        thrust = 44000
+        self.level_out(thrust)
+
         # dart right
         thrust = 38000
         magnitude = 80
-        self.dart(magnitude, 1, thrust)
+        self.dart(magnitude, -1, thrust)
 
         # level out
         thrust = 48000
         self.level_out(thrust)
+
+        # spin
+        thrust = 44000
+        magnitude = 90
+        spinCounter = 4
+        while spinCounter > 0:
+            self.spin(magnitude, 1, thrust)
+            spinCounter -= 1
+
+        self.spin(magnitude, -1, thrust)
+        self.spin(magnitude, 1, thrust)
+        self.spin(magnitude, -1, thrust)
 
         # land
         self.land(thrust, thrust_increment)
@@ -256,12 +266,13 @@ class DanceController:
 
     # dance helper functions
     def rev_motors(self, primary_beat_interval):
-        revCount = 4
+        revCount = 2
         while revCount > 0:
-            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 35000)
-            time.sleep(primary_beat_interval)
-
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 20000)
+            # time.sleep(primary_beat_interval)
+            time.sleep(0.01)
             self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 0)
+
             time.sleep(primary_beat_interval)
             revCount -= 1
 
@@ -312,6 +323,9 @@ class DanceController:
             thrust -= thrust_increment
             self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, thrust)
             time.sleep(0.1)
+
+    def play_music(self):
+        winsound.PlaySound('FlightOfTheBumblebeeEDIT.wav', winsound.SND_FILENAME)
 
 if __name__ == '__main__':
     # Initialize the low-level drivers (don't list the debug drivers)
