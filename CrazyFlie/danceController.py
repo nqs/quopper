@@ -55,8 +55,8 @@ class DanceController:
         # Set Initial values
         # 43000 @ 3700mV
         # 47000 @ 3500mV - not enough
-        self._thrust = 30000
-        self._rollTrim = 2
+        self._thrust = 10000
+        self._rollTrim = 0
         self._pitchTrim = 0
         self._rollThrustFactor = 150
         self._pitchTrustFactor = 250
@@ -139,7 +139,7 @@ class DanceController:
         # gyro_z = new_dict['Logger']['gyro.z']
         battery = new_dict['Logger']['pm.vbat']
 
-        if stab_roll > 90 or stab_pitch > 90:
+        if stab_roll > 99 or stab_pitch > 99:
             print "I'm out of control!!!!!"
             self._cf.commander.send_setpoint(0, 0, 0, 0)
             self._cf.close_link()
@@ -199,7 +199,7 @@ class DanceController:
 
         self.rev_motors(primary_beat_interval)
 
-        self.lift_off(30000, max_thrust, thrust_increment)
+        self.lift_off(self._thrust, max_thrust, thrust_increment)
 
         # hover
         self.adjust_thrust(48000)
@@ -214,7 +214,12 @@ class DanceController:
             spinCounter -= 1
 
         # level out
-        self.adjust_thrust(max_thrust - thrust_increment)
+        self.adjust_thrust(48000)
+
+        # turn to give enough space for dart
+        # self.spin(magnitude, -1, self._thrust)
+
+        # level out
         self.level_out(self._thrust)
 
         # dart left
@@ -223,7 +228,7 @@ class DanceController:
         self.dart(magnitude, 1, self._thrust)
 
         # level out
-        self.adjust_thrust(46000)
+        self.adjust_thrust(45000)
         self.level_out(self._thrust)
 
         # gain altitude and turn
@@ -247,16 +252,60 @@ class DanceController:
         self.level_out(self._thrust)
 
         # spin
-        self.adjust_thrust(45000)
-        magnitude = 90
+        self.adjust_thrust(44000)
+        magnitude = 40
         spinCounter = 4
         while spinCounter > 0:
             self.spin(magnitude, 1, self._thrust)
             spinCounter -= 1
 
+        # level out
+        self.level_out(self._thrust)
+
+        # spin
         self.adjust_thrust(45000)
         self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
         self.spin(magnitude, 1, self._thrust)
+        self.spin(magnitude, 1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+
+        # level out
+        self.level_out(self._thrust)
+
+        # spin up
+        magnitude = 40
+        self.adjust_thrust(max_thrust)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+
+        # spin down
+        self.adjust_thrust(42000)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+
+        # spin up
+        magnitude = 70
+        self.adjust_thrust(max_thrust - 4000)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+
+        # spin down
+        self.adjust_thrust(42000)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+
+        # spin up
+        magnitude = 100
+        self.adjust_thrust(46000)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
+
+        # spin down
+        magnitude = 70
+        self.adjust_thrust(42000)
+        self.spin(magnitude, -1, self._thrust)
         self.spin(magnitude, -1, self._thrust)
 
         # land
@@ -264,6 +313,9 @@ class DanceController:
 
         print "End"
         self._cf.commander.send_setpoint(0, 0, 0, 0)
+
+        # make sure the music has time to end
+        time.sleep(8.0)
 
         # Make sure that the last packet leaves before the link is closed
         # since the message queue is not flushed before closing
@@ -276,6 +328,8 @@ class DanceController:
     def adjust_thrust(self, newThrust):
         self._thrust = newThrust
         print self._batteryVoltage
+        if(self._batteryVoltage > 4100):
+            self._thrust -= 2000
         if(self._batteryVoltage > 4000):
             self._thrust -= 2000
         if(self._batteryVoltage < 3700):
