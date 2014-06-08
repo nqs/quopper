@@ -55,7 +55,7 @@ class DanceController:
         # Set Initial values
         # 43000 @ 3700mV
         # 47000 @ 3500mV - not enough
-        self._thrust = 29000
+        self._thrust = 30000
         self._rollTrim = 2
         self._pitchTrim = 0
         self._rollThrustFactor = 150
@@ -63,6 +63,7 @@ class DanceController:
 
         self._maxBatteryCounter = 50
         self._batteryCounter = 0
+        self._batteryVoltage = 4000     #about full
 
         """ Initialize and run the example with the specified link_uri """
         print "Connecting to %s" % link_uri
@@ -151,7 +152,8 @@ class DanceController:
         # print battery
         self._batteryCounter += 1
         if(self._batteryCounter > self._maxBatteryCounter):
-            print (battery * 1000)
+            self._batteryVoltage = battery * 1000
+            print self._batteryVoltage
             self._batteryCounter = 0
 
     def _connection_failed(self, link_uri, msg):
@@ -186,9 +188,10 @@ class DanceController:
 
         primary_beat_interval = 1.3
 
-        thrust = 30000
         thrust_increment = 2000
         max_thrust = 54000
+
+        self.adjust_thrust(30000)
 
         roll = 0
         pitch = 0
@@ -196,63 +199,68 @@ class DanceController:
 
         self.rev_motors(primary_beat_interval)
 
-        self.lift_off(thrust, max_thrust, thrust_increment)
+        self.lift_off(30000, max_thrust, thrust_increment)
 
         # hover
-        thrust = 50000
-        self.hover(roll, yaw, thrust, thrust_increment)
+        self.adjust_thrust(48000)
+        self.hover(roll, yaw, self._thrust, thrust_increment)
 
         # spin
-        thrust = 44000
+        self.adjust_thrust(45000)
         magnitude = -90
         spinCounter = 4
         while spinCounter > 0:
-            self.spin(magnitude, 1, thrust)
+            self.spin(magnitude, 1, self._thrust)
             spinCounter -= 1
 
+        # level out
+        self.adjust_thrust(max_thrust - thrust_increment)
+        self.level_out(self._thrust)
+
         # dart left
-        thrust = 38000
+        self.adjust_thrust(38000)
         magnitude = 80
-        self.dart(magnitude, 1, thrust)
+        self.dart(magnitude, 1, self._thrust)
 
         # level out
-        thrust = 48000
-        self.level_out(thrust)
+        self.adjust_thrust(46000)
+        self.level_out(self._thrust)
 
         # gain altitude and turn
         altitude_counter = 2
         while altitude_counter > 0:
-            thrust = max_thrust
-            self.hover(0, 60, thrust, thrust_increment)
+            self.adjust_thrust(max_thrust)
+            self.hover(0, 90, self._thrust, thrust_increment)
             altitude_counter -= 1
 
         # level out
-        thrust = 44000
-        self.level_out(thrust)
+        self.adjust_thrust(44000)
+        self.level_out(self._thrust)
 
         # dart right
-        thrust = 38000
+        self.adjust_thrust(37000)
         magnitude = 80
-        self.dart(magnitude, -1, thrust)
+        self.dart(magnitude, 1, self._thrust)
 
         # level out
-        thrust = 48000
-        self.level_out(thrust)
+        self.adjust_thrust(46000)
+        self.level_out(self._thrust)
 
         # spin
-        thrust = 44000
+        self.adjust_thrust(45000)
         magnitude = 90
         spinCounter = 4
         while spinCounter > 0:
-            self.spin(magnitude, 1, thrust)
+            self.spin(magnitude, 1, self._thrust)
             spinCounter -= 1
 
-        self.spin(magnitude, -1, thrust)
-        self.spin(magnitude, 1, thrust)
-        self.spin(magnitude, -1, thrust)
+        self.adjust_thrust(45000)
+        self.spin(magnitude, -1, self._thrust)
+        self.spin(magnitude, 1, self._thrust)
+        self.spin(magnitude, -1, self._thrust)
 
         # land
-        self.land(thrust, thrust_increment)
+        self.land(self._thrust, thrust_increment)
 
         print "End"
         self._cf.commander.send_setpoint(0, 0, 0, 0)
@@ -265,10 +273,26 @@ class DanceController:
         os.exit(0)
 
     # dance helper functions
+    def adjust_thrust(self, newThrust):
+        self._thrust = newThrust
+        print self._batteryVoltage
+        if(self._batteryVoltage > 4000):
+            self._thrust -= 2000
+        if(self._batteryVoltage < 3700):
+            self._thrust += 1000
+        if(self._batteryVoltage < 3600):
+            self._thrust += 1000
+        if(self._batteryVoltage < 3300):
+            self._thrust += 2000
+        if(self._batteryVoltage < 3000):
+            self._thrust += 2000
+        print "ADJUSTED THRUST"
+        print self._thrust
+
     def rev_motors(self, primary_beat_interval):
         revCount = 2
         while revCount > 0:
-            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 20000)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 30000)
             # time.sleep(primary_beat_interval)
             time.sleep(0.01)
             self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, 0)
@@ -278,9 +302,9 @@ class DanceController:
 
     def lift_off(self, thrust, max_thrust, thrust_increment):
         print "lifting off"
-        while thrust < max_thrust:
-            thrust += thrust_increment
-            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, thrust)
+        while self._thrust < max_thrust:
+            self.adjust_thrust(self._thrust + thrust_increment)
+            self._cf.commander.send_setpoint(self._rollTrim, self._pitchTrim, 0, self._thrust)
             time.sleep(0.1)
 
     def hover(self, roll, yaw, thrust, thrust_increment):
